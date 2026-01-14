@@ -54,7 +54,7 @@ controls.keyPanSpeed = 7.0;
 const loader = new GLTFLoader();
 let model3D;
 loader.load(
-  "/models/car.glb",
+  "./models/car.glb",
   (gltf) => {
     model3D = gltf.scene;
     model3D.position.set(0, 0, 0);
