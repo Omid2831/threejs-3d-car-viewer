@@ -2,7 +2,7 @@
 
 An interactive, high-end 3D car model viewer built with **Three.js** and **GSAP (GreenSock Animation Platform)**. It showcases a 3D model (GLB format) with automatic multi-angle cinematic camera paths, provides manual control capabilities, and opens with a premium loading screen transition.
 
-![Cinematic Loading and Entrance Transition](./media/preview.webp)
+![Cinematic Loading and Entrance Transition](./public/media/preview.webp)
 
 ---
 
@@ -44,9 +44,9 @@ threejs/
 │   └── workflows/
 │       ├── deploy.yml      # CI/CD GitHub Pages deployment workflow
 │       └── static.yml      # Static hosting check workflow
-├── media/
-│   └── preview.webp        # README live preview media asset
 ├── public/
+│   ├── media/
+│   │   └── preview.webp    # README live preview media asset
 │   └── models/
 │       └── car.glb         # 3D car model GLB asset
 ├── src/
