@@ -181,6 +181,15 @@ export class CinematicCameraManager {
     this.currentPathIndex = 0;
     this.pathStartTime = 0;
 
+    // Entrance sweep variables
+    this.isEntering = false;
+    this.entranceStart = 0;
+    this.entranceDuration = 4.5; // 4.5 seconds for a majestic entrance sweep
+
+    this.entranceFromPos = new THREE.Vector3(12, 5, 18);
+    this.entranceFromLookAt = new THREE.Vector3(0, 0.4, 0);
+    this.entranceFromFov = 20; // narrow focus far shot
+
     // Transition blending variables
     this.isTransitioning = false;
     this.transitionStart = 0;
@@ -202,6 +211,33 @@ export class CinematicCameraManager {
       intensity: 0.012,
       speed: 0.4,
     };
+  }
+
+  /**
+   * Function Name: startEntranceTransition
+   * Description: Prepares the camera parameters and starts the entrance transition sweep.
+   * 
+   * Inputs:
+   *   - elapsed: number (Total elapsed seconds from the main clock)
+   * 
+   * Example:
+   *   manager.startEntranceTransition(clock.getElapsedTime());
+   */
+  startEntranceTransition(elapsed) {
+    this.isEntering = true;
+    this.entranceStart = elapsed;
+
+    // Target is the first frame of the first path (Grand Reveal)
+    const targetPath = CINEMATIC_PATHS[0];
+    this.transitionToPos.copy(targetPath.getPosition(0));
+    this.transitionToLookAt.copy(targetPath.getLookAt(0));
+    this.transitionToFov = targetPath.getFov(0);
+
+    // Position camera at start coordinates instantly before reveal
+    this.camera.position.copy(this.entranceFromPos);
+    this.camera.lookAt(this.entranceFromLookAt);
+    this.camera.fov = this.entranceFromFov;
+    this.camera.updateProjectionMatrix();
   }
 
   /**
@@ -269,8 +305,6 @@ export class CinematicCameraManager {
   update(elapsed) {
     if (!this.cinematicMode) return;
 
-    const path = CINEMATIC_PATHS[this.currentPathIndex];
-
     // Compute handheld micro-drift offsets
     this.drift.x =
       Math.sin(elapsed * this.drift.speed * 1.3) *
@@ -284,6 +318,43 @@ export class CinematicCameraManager {
       Math.cos(elapsed * this.drift.speed * 1.1 + 2.0) *
       Math.sin(elapsed * this.drift.speed * 0.6) *
       this.drift.intensity;
+
+    // Handle initial page reveal entrance sweep
+    if (this.isEntering) {
+      const tRaw = (elapsed - this.entranceStart) / this.entranceDuration;
+      const t = Math.min(tRaw, 1);
+      const eased = easing.easeInOutQuint(t); // quintic for super smooth zoom
+
+      const pos = new THREE.Vector3().lerpVectors(
+        this.entranceFromPos,
+        this.transitionToPos,
+        eased
+      );
+      const lookAt = new THREE.Vector3().lerpVectors(
+        this.entranceFromLookAt,
+        this.transitionToLookAt,
+        eased
+      );
+      const fov = THREE.MathUtils.lerp(this.entranceFromFov, this.transitionToFov, eased);
+
+      // Apply drift overlay
+      pos.x += this.drift.x;
+      pos.y += this.drift.y;
+      pos.z += this.drift.z;
+
+      this.camera.position.copy(pos);
+      this.camera.lookAt(lookAt);
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+
+      if (t >= 1) {
+        this.isEntering = false;
+        this.startPath(0, elapsed);
+      }
+      return;
+    }
+
+    const path = CINEMATIC_PATHS[this.currentPathIndex];
 
     if (this.isTransitioning) {
       const tRaw = (elapsed - this.transitionStart) / this.transitionDuration;
