@@ -153,6 +153,22 @@ export const CINEMATIC_PATHS = [
  * Example:
  *   const camera = createCamera(window.innerWidth, window.innerHeight);
  */
+import { gsap } from "gsap";
+
+/**
+ * Function Name: createCamera
+ * Description: Initializes a PerspectiveCamera with cinematic aspect ratio bounds.
+ * 
+ * Inputs:
+ *   - width: number (Viewport width)
+ *   - height: number (Viewport height)
+ * 
+ * Outputs / Returns:
+ *   - THREE.PerspectiveCamera (The initialized camera)
+ * 
+ * Example:
+ *   const camera = createCamera(window.innerWidth, window.innerHeight);
+ */
 export function createCamera(width, height) {
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
   camera.position.set(4, 2, 6);
@@ -163,7 +179,7 @@ export function createCamera(width, height) {
 /**
  * Class Name: CinematicCameraManager
  * Description: Manages the active state of the camera (Cinematic vs Manual Mode),
- *              shot transitions, easing, and secondary motion (camera drift).
+ *              shot transitions, easing, and secondary motion (camera drift) using GSAP.
  */
 export class CinematicCameraManager {
   /**
@@ -179,29 +195,20 @@ export class CinematicCameraManager {
 
     this.cinematicMode = true;
     this.currentPathIndex = 0;
-    this.pathStartTime = 0;
+
+    // View orientation target vector
+    this.lookTarget = new THREE.Vector3(0, 0, 0);
+
+    // Active path animation tween and track progress
+    this.pathTween = null;
+    this.pathProgress = 0;
 
     // Entrance sweep variables
     this.isEntering = false;
-    this.entranceStart = 0;
     this.entranceDuration = 4.5; // 4.5 seconds for a majestic entrance sweep
-
     this.entranceFromPos = new THREE.Vector3(12, 5, 18);
     this.entranceFromLookAt = new THREE.Vector3(0, 0.4, 0);
     this.entranceFromFov = 20; // narrow focus far shot
-
-    // Transition blending variables
-    this.isTransitioning = false;
-    this.transitionStart = 0;
-    this.transitionDuration = 3.0; // 3 seconds blend time
-
-    this.transitionFromPos = new THREE.Vector3();
-    this.transitionFromLookAt = new THREE.Vector3();
-    this.transitionFromFov = 45;
-
-    this.transitionToPos = new THREE.Vector3();
-    this.transitionToLookAt = new THREE.Vector3();
-    this.transitionToFov = 45;
 
     // Micro camera drift (handheld effect)
     this.drift = {
@@ -215,86 +222,174 @@ export class CinematicCameraManager {
 
   /**
    * Function Name: startEntranceTransition
-   * Description: Prepares the camera parameters and starts the entrance transition sweep.
-   * 
-   * Inputs:
-   *   - elapsed: number (Total elapsed seconds from the main clock)
+   * Description: Prepares the camera parameters and starts the entrance transition sweep using GSAP.
    * 
    * Example:
-   *   manager.startEntranceTransition(clock.getElapsedTime());
+   *   manager.startEntranceTransition();
    */
-  startEntranceTransition(elapsed) {
+  startEntranceTransition() {
     this.isEntering = true;
-    this.entranceStart = elapsed;
 
     // Target is the first frame of the first path (Grand Reveal)
     const targetPath = CINEMATIC_PATHS[0];
-    this.transitionToPos.copy(targetPath.getPosition(0));
-    this.transitionToLookAt.copy(targetPath.getLookAt(0));
-    this.transitionToFov = targetPath.getFov(0);
+    const targetPos = targetPath.getPosition(0);
+    const targetLookAt = targetPath.getLookAt(0);
+    const targetFov = targetPath.getFov(0);
 
     // Position camera at start coordinates instantly before reveal
     this.camera.position.copy(this.entranceFromPos);
-    this.camera.lookAt(this.entranceFromLookAt);
+    this.lookTarget.copy(this.entranceFromLookAt);
     this.camera.fov = this.entranceFromFov;
     this.camera.updateProjectionMatrix();
+
+    // Kill any active animations
+    gsap.killTweensOf(this.camera.position);
+    gsap.killTweensOf(this.lookTarget);
+    if (this.pathTween) this.pathTween.kill();
+
+    // Animate camera position
+    gsap.to(this.camera.position, {
+      x: targetPos.x,
+      y: targetPos.y,
+      z: targetPos.z,
+      duration: this.entranceDuration,
+      ease: "power4.inOut"
+    });
+
+    // Animate focal target
+    gsap.to(this.lookTarget, {
+      x: targetLookAt.x,
+      y: targetLookAt.y,
+      z: targetLookAt.z,
+      duration: this.entranceDuration,
+      ease: "power4.inOut"
+    });
+
+    // Animate field of view
+    gsap.to(this.camera, {
+      fov: targetFov,
+      duration: this.entranceDuration,
+      ease: "power4.inOut",
+      onUpdate: () => {
+        this.camera.updateProjectionMatrix();
+      },
+      onComplete: () => {
+        this.isEntering = false;
+        this.startPath(0);
+      }
+    });
   }
 
   /**
    * Function Name: startPath
-   * Description: Sets the active camera path index and resets path timing parameters.
+   * Description: Animates the camera along the active cinematic track using GSAP.
    * 
    * Inputs:
    *   - index: number (Path index from 0 to 3)
-   *   - elapsed: number (Total elapsed seconds from main clock)
    * 
    * Example:
-   *   manager.startPath(0, clock.getElapsedTime());
+   *   manager.startPath(0);
    */
-  startPath(index, elapsed) {
+  startPath(index) {
     this.currentPathIndex = index;
-    this.pathStartTime = elapsed;
+    const path = CINEMATIC_PATHS[index];
     this.onPathChange(index);
+
+    // Cancel existing animations to prevent conflicts
+    gsap.killTweensOf(this.camera.position);
+    gsap.killTweensOf(this.lookTarget);
+    if (this.pathTween) this.pathTween.kill();
+
+    this.pathProgress = 0;
+
+    // Tween path progress from 0 to 1
+    this.pathTween = gsap.to(this, {
+      pathProgress: 1,
+      duration: path.duration,
+      ease: "none", // cinematic ease is handled in the path update via easing functions
+      onUpdate: () => {
+        const t = path.easing(this.pathProgress);
+        const pos = path.getPosition(t);
+        const lookAt = path.getLookAt(t);
+        const fov = path.getFov(t);
+
+        this.camera.position.copy(pos);
+        this.lookTarget.copy(lookAt);
+        this.camera.fov = fov;
+        this.camera.updateProjectionMatrix();
+      },
+      onComplete: () => {
+        // Seamlessly transition to the next camera perspective
+        const nextIndex = (this.currentPathIndex + 1) % CINEMATIC_PATHS.length;
+        this.startTransitionToPath(nextIndex);
+      }
+    });
   }
 
   /**
    * Function Name: startTransitionToPath
-   * Description: Captures current camera state and sets target camera parameters to begin a blended transition.
+   * Description: Animates a smooth transition from current camera positions to the start of a path.
    * 
    * Inputs:
    *   - nextIndex: number (Destination path index)
-   *   - elapsed: number (Total elapsed seconds from main clock)
+   *   - controlsTarget: THREE.Vector3 (Optional current focal point from manual controls)
    * 
    * Example:
-   *   manager.startTransitionToPath(1, clock.getElapsedTime());
+   *   manager.startTransitionToPath(1, controls.target);
    */
-  startTransitionToPath(nextIndex, elapsed) {
-    this.isTransitioning = true;
-    this.transitionStart = elapsed;
-
-    // Capture current camera state as start coordinates
-    this.transitionFromPos.copy(this.camera.position);
-
-    // Form lookAt target vector from current camera view direction vector
-    const dir = new THREE.Vector3();
-    this.camera.getWorldDirection(dir);
-    this.transitionFromLookAt.copy(this.camera.position).add(dir.multiplyScalar(5));
-    this.transitionFromFov = this.camera.fov;
-
-    // Retrieve target coordinates from the first frame of the next shot
-    const nextPath = CINEMATIC_PATHS[nextIndex];
-    this.transitionToPos.copy(nextPath.getPosition(0));
-    this.transitionToLookAt.copy(nextPath.getLookAt(0));
-    this.transitionToFov = nextPath.getFov(0);
+  startTransitionToPath(nextIndex, controlsTarget = null) {
+    // Kill any running animations
+    gsap.killTweensOf(this.camera.position);
+    gsap.killTweensOf(this.lookTarget);
+    if (this.pathTween) this.pathTween.kill();
 
     this.currentPathIndex = nextIndex;
+    const nextPath = CINEMATIC_PATHS[nextIndex];
     this.onPathChange(nextIndex);
+
+    // If returning from free controls, align lookTarget with current OrbitControls target
+    if (controlsTarget) {
+      this.lookTarget.copy(controlsTarget);
+    }
+
+    const targetPos = nextPath.getPosition(0);
+    const targetLookAt = nextPath.getLookAt(0);
+    const targetFov = nextPath.getFov(0);
+
+    // Animating coordinates
+    gsap.to(this.camera.position, {
+      x: targetPos.x,
+      y: targetPos.y,
+      z: targetPos.z,
+      duration: 3.0,
+      ease: "power3.inOut"
+    });
+
+    gsap.to(this.lookTarget, {
+      x: targetLookAt.x,
+      y: targetLookAt.y,
+      z: targetLookAt.z,
+      duration: 3.0,
+      ease: "power3.inOut"
+    });
+
+    gsap.to(this.camera, {
+      fov: targetFov,
+      duration: 3.0,
+      ease: "power3.inOut",
+      onUpdate: () => {
+        this.camera.updateProjectionMatrix();
+      },
+      onComplete: () => {
+        // Play path loop once coordinates align
+        this.startPath(nextIndex);
+      }
+    });
   }
 
   /**
    * Function Name: update
-   * Description: Evaluates coordinates along the active track, adds noise for drift,
-   *              and updates position, focal targets, and fields-of-view.
+   * Description: Calculates and adds handheld camera drift overlays, and aligns focal direction.
    * 
    * Inputs:
    *   - elapsed: number (Total elapsed seconds from main clock)
@@ -319,101 +414,12 @@ export class CinematicCameraManager {
       Math.sin(elapsed * this.drift.speed * 0.6) *
       this.drift.intensity;
 
-    // Handle initial page reveal entrance sweep
-    if (this.isEntering) {
-      const tRaw = (elapsed - this.entranceStart) / this.entranceDuration;
-      const t = Math.min(tRaw, 1);
-      const eased = easing.easeInOutQuint(t); // quintic for super smooth zoom
+    // Apply drift offset directly to camera position
+    this.camera.position.x += this.drift.x;
+    this.camera.position.y += this.drift.y;
+    this.camera.position.z += this.drift.z;
 
-      const pos = new THREE.Vector3().lerpVectors(
-        this.entranceFromPos,
-        this.transitionToPos,
-        eased
-      );
-      const lookAt = new THREE.Vector3().lerpVectors(
-        this.entranceFromLookAt,
-        this.transitionToLookAt,
-        eased
-      );
-      const fov = THREE.MathUtils.lerp(this.entranceFromFov, this.transitionToFov, eased);
-
-      // Apply drift overlay
-      pos.x += this.drift.x;
-      pos.y += this.drift.y;
-      pos.z += this.drift.z;
-
-      this.camera.position.copy(pos);
-      this.camera.lookAt(lookAt);
-      this.camera.fov = fov;
-      this.camera.updateProjectionMatrix();
-
-      if (t >= 1) {
-        this.isEntering = false;
-        this.startPath(0, elapsed);
-      }
-      return;
-    }
-
-    const path = CINEMATIC_PATHS[this.currentPathIndex];
-
-    if (this.isTransitioning) {
-      const tRaw = (elapsed - this.transitionStart) / this.transitionDuration;
-      const t = Math.min(tRaw, 1);
-      const eased = easing.easeInOutQuint(t);
-
-      const pos = new THREE.Vector3().lerpVectors(
-        this.transitionFromPos,
-        this.transitionToPos,
-        eased
-      );
-      const lookAt = new THREE.Vector3().lerpVectors(
-        this.transitionFromLookAt,
-        this.transitionToLookAt,
-        eased
-      );
-      const fov = THREE.MathUtils.lerp(this.transitionFromFov, this.transitionToFov, eased);
-
-      // Apply drift overlay
-      pos.x += this.drift.x;
-      pos.y += this.drift.y;
-      pos.z += this.drift.z;
-
-      this.camera.position.copy(pos);
-      this.camera.lookAt(lookAt);
-      this.camera.fov = fov;
-      this.camera.updateProjectionMatrix();
-
-      if (t >= 1) {
-        this.isTransitioning = false;
-        this.pathStartTime = elapsed;
-      }
-      return;
-    }
-
-    // Standard camera path motion
-    const pathElapsed = elapsed - this.pathStartTime;
-    const tRaw = pathElapsed / path.duration;
-
-    if (tRaw >= 1) {
-      // Loop seamlessly to next cinematic camera perspective
-      const nextIndex = (this.currentPathIndex + 1) % CINEMATIC_PATHS.length;
-      this.startTransitionToPath(nextIndex, elapsed);
-      return;
-    }
-
-    const t = path.easing(tRaw);
-    const pos = path.getPosition(t);
-    const lookAt = path.getLookAt(t);
-    const fov = path.getFov(t);
-
-    // Apply drift overlay
-    pos.x += this.drift.x;
-    pos.y += this.drift.y;
-    pos.z += this.drift.z;
-
-    this.camera.position.copy(pos);
-    this.camera.lookAt(lookAt);
-    this.camera.fov = fov;
-    this.camera.updateProjectionMatrix();
+    // Maintain focal orientation toward lookTarget
+    this.camera.lookAt(this.lookTarget);
   }
 }
