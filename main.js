@@ -1,127 +1,113 @@
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+/**
+ * File Name: main.js
+ * Description: The main execution entry point for the 3D Car Viewer application.
+ *              Bootstraps the scene, camera, renderer, lighting, ground, controls,
+ *              loading routines, and key event listeners, and executes the render loop.
+ */
 
-// CANVAS
+import * as THREE from "three";
+import { createScene } from "./src/core/Scene.js";
+import { createCamera, CinematicCameraManager, CINEMATIC_PATHS } from "./src/core/Camera.js";
+import { createRenderer, updateRendererSize } from "./src/core/Renderer.js";
+import { createControls } from "./src/core/Controls.js";
+import { setupLighting, animateAccentLight } from "./src/lights/Lighting.js";
+import { createGround } from "./src/objects/Ground.js";
+import { loadCarModel } from "./src/objects/CarModel.js";
+import {
+  createCinematicUI,
+  updateCameraIndicator,
+  setCinematicUIState,
+  hideLoadingOverlay,
+  updateLoadingProgress,
+} from "./src/ui/CinematicUI.js";
+
+// ─── INITIALIZATION ──────────────────────────────────────────────────
+
+// Reference to HTML5 Canvas element
 const canvas = document.getElementById("myCanvas");
 
-// SCENE
-const scene = new THREE.Scene();
-
-// size
-const s = {
+// Viewport sizes configuration object
+const sizes = {
   width: window.innerWidth,
   height: window.innerHeight,
 };
 
-// camera
+// Create the core ThreeJS modules
+const scene = createScene(0x0a0a0f, 0x0a0a0f, 0.15);
+const camera = createCamera(sizes.width, sizes.height);
+const renderer = createRenderer(canvas, sizes.width, sizes.height);
+const controls = createControls(camera, renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(75, s.width / s.height, 0.4, 1000);
+// Setup scene elements (Lights, Floor Ground)
+const lights = setupLighting(scene);
+const ground = createGround(scene);
 
-camera.position.set(0, 0, 5);
-
-camera.lookAt(0, 0, 0);
+// Ensure the camera is registered within the scene graph
 scene.add(camera);
 
-// RENDER
+// ─── CINEMATIC UI SETUP ──────────────────────────────────────────────
+createCinematicUI(CINEMATIC_PATHS.length);
 
-const renderer = new THREE.WebGLRenderer({
-  canvas: canvas,
-  antialias: true,
+// ─── CAMERA SYSTEM CONFIGURATION ──────────────────────────────────────
+const cameraManager = new CinematicCameraManager(camera, (index) => {
+  // Callback: whenever the active path changes, update indicators and labels in the UI
+  updateCameraIndicator(index, CINEMATIC_PATHS[index].name);
 });
-renderer.setSize(s.width, s.height);
-renderer.render(scene, camera);
 
-// CONTROLS
-const controls = new OrbitControls(camera, renderer.domElement);
-
-controls.keys = {
-  LEFT: "ArrowLeft", //left arrow
-  UP: "ArrowUp", // up arrow
-  RIGHT: "ArrowRight", // right arrow
-  BOTTOM: "ArrowDown", // down arrow
-};
-
-controls.enableDamping = true;
-controls.dampingFactor = 0.3;
-controls.enableZoom = true;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.5;
-controls.enablePan = true;
-controls.keyPanSpeed = 7.0;
-
-// LOAD MODEL
-const loader = new GLTFLoader();
+// ─── 3D MODEL LOADING ────────────────────────────────────────────────
 let model3D;
-loader.load(
+let modelCenter = new THREE.Vector3(0, 0, 0);
+let modelRadius = 2;
+
+loadCarModel(
+  scene,
   "./models/car.glb",
-  (gltf) => {
-    model3D = gltf.scene;
-    model3D.position.set(0, 0, 0);
-    model3D.scale.set(0.2, 0.2, 0.2);
-    scene.add(model3D);
+  // onLoad callback
+  (model, center, radius) => {
+    model3D = model;
+    modelCenter.copy(center);
+    modelRadius = radius;
+
+    // Smoothly fade out overlay screen elements
+    hideLoadingOverlay();
   },
-  (xhr) => {
-    console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+  // onProgress callback
+  (percent) => {
+    updateLoadingProgress(percent);
   },
+  // onError callback
   (error) => {
-    console.error("An error has occurred", error);
+    console.error("An error occurred while loading the car mesh asset:", error);
   }
 );
-// axes helper
-const axeshelper = new THREE.AxesHelper();
-scene.add(axeshelper);
 
-// Key
-const keys = () => {
-  document.addEventListener("keydown", (e) => {
-    if (!model3D) return;
+// ─── CLOCK & RUNTIME COUNTER ─────────────────────────────────────────
+const clock = new THREE.Clock();
+let elapsed = 0;
 
-    // keys conditions
-    switch (e.key.toLowerCase() || e.key.toUpperCase()) {
-      case "w":
-        model3D.position.z += 0.1;
-        break;
-      case "s":
-        model3D.position.z -= 0.1;
-        break;
-      case "a":
-        model3D.position.x += 0.1;
-        break;
-      case "d":
-        model3D.position.x -= 0.1;
-        break;
-      case "q":
-        model3D.rotation.y += 0.1;
-        break;
-      case "e":
-        model3D.rotation.y -= 0.1;
-        break;
-      case "z":
-        model3D.position.y -= 0.1;
-        break;
-      case "x":
-        model3D.position.y += 0.1;
-        break;
-      default:
-        console.warn(alert("Unknown key pressed"));
-    }
-  });
-};
-keys();
+// ─── EVENT LISTENERS ─────────────────────────────────────────────────
 
-// RESIZE
+/**
+ * Resize Listener
+ * Description: Keeps camera aspect ratios and renderer viewport dimensions sync'd on screen resize events.
+ */
 window.addEventListener("resize", () => {
-  // Update camera aspect ratio
-  camera.aspect = window.innerWidth / window.innerHeight;
+  sizes.width = window.innerWidth;
+  sizes.height = window.innerHeight;
+
+  // Recalculate camera aspect ratio and project projection matrix updates
+  camera.aspect = sizes.width / sizes.height;
   camera.updateProjectionMatrix();
 
-  // Update renderer size
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  // Resize WebGL viewport framebuffers
+  updateRendererSize(renderer, sizes.width, sizes.height);
 });
 
-//  FullScreen
-const doubleClick = () => {
+/**
+ * Fullscreen Double Click Listener
+ * Description: Standard double-click callback on canvas toggling browser full-screen viewport.
+ */
+canvas.addEventListener("dblclick", () => {
   if (!document.fullscreenElement) {
     canvas.requestFullscreen().catch((err) => {
       console.error("Error attempting to enable full-screen mode:", err);
@@ -129,16 +115,82 @@ const doubleClick = () => {
   } else {
     document.exitFullscreen();
   }
-};
+});
 
-canvas.addEventListener("dblclick", doubleClick);
+/**
+ * Keyboard Control Listener
+ * Description: Monitors keystrokes:
+ *   - '1', '2', '3', '4' keys transition to specific cinematic cameras.
+ *   - Spacebar toggles between Cinematic Mode (automated tracks) and Free Camera Mode (manual OrbitControls).
+ */
+document.addEventListener("keydown", (e) => {
+  const key = e.key.toLowerCase();
 
-// ANIMATE
+  // Key select transition targets
+  if (key === "1" || key === "2" || key === "3" || key === "4") {
+    const idx = parseInt(key) - 1;
+    if (idx >= CINEMATIC_PATHS.length) return;
 
+    // Force return to cinematic mode if user was in free controls mode
+    if (!cameraManager.cinematicMode) {
+      cameraManager.cinematicMode = true;
+      controls.enabled = false;
+      setCinematicUIState(true);
+    }
+
+    // Blend current coordinates seamlessly to chosen path
+    cameraManager.startTransitionToPath(idx, elapsed);
+    return;
+  }
+
+  // Spacebar controls modes toggle
+  if (key === " ") {
+    e.preventDefault();
+
+    // Toggle logic
+    cameraManager.cinematicMode = !cameraManager.cinematicMode;
+    controls.enabled = !cameraManager.cinematicMode;
+
+    // Propagate UI layout changes (bars height modifications)
+    setCinematicUIState(cameraManager.cinematicMode);
+
+    // If returning to cinematic, initiate blend transition from current manual coordinates
+    if (cameraManager.cinematicMode) {
+      cameraManager.startTransitionToPath(cameraManager.currentPathIndex, elapsed);
+    }
+  }
+});
+
+// ─── MAIN ANIMATION LOOP ─────────────────────────────────────────────
+
+/**
+ * Function Name: animate
+ * Description: The primary application loop executing each render frame. Updates light animations,
+ *              calculates active camera movements/orbit adjustments, and renders the scene buffer.
+ */
 const animate = () => {
   requestAnimationFrame(animate);
-  controls.update();
+
+  // Capture total clock runtime
+  elapsed = clock.getElapsedTime();
+
+  // Animate floor-spotlight colors HSL properties
+  animateAccentLight(lights.accentLight, elapsed);
+
+  // Process camera view coordinate adjustments
+  if (cameraManager.cinematicMode) {
+    cameraManager.update(elapsed);
+  } else {
+    // Required updates for OrbitControls inertia damping
+    controls.update();
+  }
+
+  // Draw updated scene frame
   renderer.render(scene, camera);
 };
 
+// Start animation loop sequence
 animate();
+
+// Initialize first camera path track immediately
+cameraManager.startPath(0, 0);
