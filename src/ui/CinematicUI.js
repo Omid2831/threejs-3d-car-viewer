@@ -195,24 +195,45 @@ export function setCinematicUIState(cinematicMode) {
 
 /**
  * Function Name: hideLoadingOverlay
- * Description: Fades out and removes the initial loading screen when loading completes.
+ * Description: Transitions out the loading screen. Fades/slides up the loading content,
+ *              slides down the background panel, triggers a camera movement callback, and
+ *              finally removes the preloader overlay from screen space.
+ * 
+ * Inputs:
+ *   - onRevealCallback: Function (Callback executed when the 3D scene starts to be revealed)
  * 
  * Example:
- *   hideLoadingOverlay();
+ *   hideLoadingOverlay(() => { cameraManager.startEntranceTransition(elapsed); });
  */
-export function hideLoadingOverlay() {
-  const loadingEl = document.getElementById("loading");
-  if (loadingEl) {
-    loadingEl.style.opacity = "0";
-    setTimeout(() => {
-      loadingEl.style.display = "none";
-    }, 600);
+export function hideLoadingOverlay(onRevealCallback = () => {}) {
+  const preloaderContent = document.getElementById("preloader-content");
+  const preloader = document.getElementById("preloader");
+
+  if (preloaderContent) {
+    // Fade out and translate the text up
+    preloaderContent.classList.add("fade-up");
   }
+
+  // Delay the screen slide down slightly for pacing
+  setTimeout(() => {
+    if (preloader) {
+      preloader.classList.add("reveal-down");
+    }
+    // Execute callback to synchronize camera movement with reveal action
+    onRevealCallback();
+  }, 600);
+
+  // Complete cleanup once CSS transition ends (1.6s transition + 0.6s delay = 2.2s total)
+  setTimeout(() => {
+    if (preloader) {
+      preloader.style.display = "none";
+    }
+  }, 2200);
 }
 
 /**
  * Function Name: updateLoadingProgress
- * Description: Updates the loading progress bar element's width percentage.
+ * Description: Updates the horizontal preloader line width and text counter.
  * 
  * Inputs:
  *   - percentage: number (Percentage value from 0 to 100)
@@ -221,8 +242,13 @@ export function hideLoadingOverlay() {
  *   updateLoadingProgress(75);
  */
 export function updateLoadingProgress(percentage) {
-  const bar = document.getElementById("load-bar");
-  if (bar) {
-    bar.style.width = percentage + "%";
+  const fill = document.getElementById("loader-line-fill");
+  const pctText = document.getElementById("preloader-pct");
+
+  if (fill) {
+    fill.style.width = percentage + "%";
+  }
+  if (pctText) {
+    pctText.textContent = percentage + "%";
   }
 }
