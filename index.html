@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Threejs basics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
     <style>
       * {
         margin: 0;
@@ -14,9 +15,81 @@
       html {
         overflow: hidden;
       }
+      #preloader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #0a0a0f;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        transition: transform 1.6s cubic-bezier(0.85, 0, 0.15, 1);
+        overflow: hidden;
+      }
+      #preloader.reveal-down {
+        transform: translateY(100%);
+      }
+      #preloader-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      #preloader-content.fade-up {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      .brand-title {
+        font-family: 'Inter', sans-serif;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 11px;
+        font-weight: 400;
+        letter-spacing: 6px;
+        text-transform: uppercase;
+      }
+      .loader-line-container {
+        width: 180px;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.12);
+        position: relative;
+        overflow: hidden;
+        margin-top: 5px;
+      }
+      #loader-line-fill {
+        width: 0%;
+        height: 100%;
+        background: #ffeedd;
+        position: absolute;
+        top: 0;
+        left: 0;
+        transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        box-shadow: 0 0 8px rgba(255, 238, 221, 0.6);
+      }
+      #preloader-pct {
+        font-family: 'Inter', monospace;
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 10px;
+        font-weight: 300;
+        letter-spacing: 2px;
+      }
     </style>
   </head>
   <body>
+    <div id="preloader">
+      <div id="preloader-content">
+        <div class="brand-title">REV SPECTRA</div>
+        <div class="loader-line-container">
+          <div id="loader-line-fill"></div>
+        </div>
+        <div id="preloader-pct">0%</div>
+      </div>
+    </div>
+
     <canvas id="myCanvas"></canvas>
 
     <script type="module" src="./main.js"></script>
