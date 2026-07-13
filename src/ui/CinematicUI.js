@@ -4,6 +4,8 @@
  *              mode displays, and updates their text, sizes, and states.
  */
 
+import { gsap } from "gsap";
+
 /**
  * Function Name: createCinematicUI
  * Description: Generates and appends HTML/CSS elements to the DOM for letterbox bars,
@@ -195,7 +197,7 @@ export function setCinematicUIState(cinematicMode) {
 
 /**
  * Function Name: hideLoadingOverlay
- * Description: Transitions out the loading screen. Fades/slides up the loading content,
+ * Description: Transitions out the loading screen using GSAP. Fades/slides up the loading content,
  *              slides down the background panel, triggers a camera movement callback, and
  *              finally removes the preloader overlay from screen space.
  * 
@@ -209,31 +211,36 @@ export function hideLoadingOverlay(onRevealCallback = () => {}) {
   const preloaderContent = document.getElementById("preloader-content");
   const preloader = document.getElementById("preloader");
 
-  if (preloaderContent) {
-    // Fade out and translate the text up
-    preloaderContent.classList.add("fade-up");
-  }
+  if (!preloader) return;
 
-  // Delay the screen slide down slightly for pacing
-  setTimeout(() => {
-    if (preloader) {
-      preloader.classList.add("reveal-down");
-    }
-    // Execute callback to synchronize camera movement with reveal action
-    onRevealCallback();
-  }, 600);
-
-  // Complete cleanup once CSS transition ends (1.6s transition + 0.6s delay = 2.2s total)
-  setTimeout(() => {
-    if (preloader) {
+  const tl = gsap.timeline({
+    onComplete: () => {
       preloader.style.display = "none";
     }
-  }, 2200);
+  });
+
+  // 1. Fade/slide up the loading text/elements
+  if (preloaderContent) {
+    tl.to(preloaderContent, {
+      opacity: 0,
+      y: -30,
+      duration: 0.8,
+      ease: "power2.out"
+    });
+  }
+
+  // 2. Slide the whole screen down to uncover the canvas
+  tl.to(preloader, {
+    yPercent: 100,
+    duration: 1.6,
+    ease: "power3.inOut",
+    onStart: onRevealCallback
+  }, "-=0.2"); // Overlap slightly for dynamic pacing
 }
 
 /**
  * Function Name: updateLoadingProgress
- * Description: Updates the horizontal preloader line width and text counter.
+ * Description: Smoothly animates the horizontal preloader line width and counts up the text counter.
  * 
  * Inputs:
  *   - percentage: number (Percentage value from 0 to 100)
@@ -245,10 +252,26 @@ export function updateLoadingProgress(percentage) {
   const fill = document.getElementById("loader-line-fill");
   const pctText = document.getElementById("preloader-pct");
 
+  // Animate the line width
   if (fill) {
-    fill.style.width = percentage + "%";
+    gsap.to(fill, {
+      width: percentage + "%",
+      duration: 0.4,
+      ease: "power1.out"
+    });
   }
+
+  // Animate the text counting up
   if (pctText) {
-    pctText.textContent = percentage + "%";
+    const currentVal = parseInt(pctText.textContent) || 0;
+    const targetObj = { val: currentVal };
+    gsap.to(targetObj, {
+      val: percentage,
+      duration: 0.4,
+      ease: "power1.out",
+      onUpdate: () => {
+        pctText.textContent = Math.round(targetObj.val) + "%";
+      }
+    });
   }
 }
