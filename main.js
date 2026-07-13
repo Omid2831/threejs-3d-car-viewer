@@ -70,7 +70,7 @@ loadCarModel(
 
     // Smoothly slide down preloader and initiate camera entrance sweep
     hideLoadingOverlay(() => {
-      cameraManager.startEntranceTransition(clock.getElapsedTime());
+      cameraManager.startEntranceTransition();
     });
   },
   // onProgress callback
@@ -140,8 +140,8 @@ document.addEventListener("keydown", (e) => {
       setCinematicUIState(true);
     }
 
-    // Blend current coordinates seamlessly to chosen path
-    cameraManager.startTransitionToPath(idx, elapsed);
+    // Blend current coordinates seamlessly to chosen path from the manual controls focus
+    cameraManager.startTransitionToPath(idx, controls.target);
     return;
   }
 
@@ -156,9 +156,9 @@ document.addEventListener("keydown", (e) => {
     // Propagate UI layout changes (bars height modifications)
     setCinematicUIState(cameraManager.cinematicMode);
 
-    // If returning to cinematic, initiate blend transition from current manual coordinates
+    // If returning to cinematic, initiate blend transition from current manual coordinates and focus
     if (cameraManager.cinematicMode) {
-      cameraManager.startTransitionToPath(cameraManager.currentPathIndex, elapsed);
+      cameraManager.startTransitionToPath(cameraManager.currentPathIndex, controls.target);
     }
   }
 });
