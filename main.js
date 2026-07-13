@@ -68,8 +68,10 @@ loadCarModel(
     modelCenter.copy(center);
     modelRadius = radius;
 
-    // Smoothly fade out overlay screen elements
-    hideLoadingOverlay();
+    // Smoothly slide down preloader and initiate camera entrance sweep
+    hideLoadingOverlay(() => {
+      cameraManager.startEntranceTransition(clock.getElapsedTime());
+    });
   },
   // onProgress callback
   (percent) => {
@@ -191,6 +193,3 @@ const animate = () => {
 
 // Start animation loop sequence
 animate();
-
-// Initialize first camera path track immediately
-cameraManager.startPath(0, 0);
