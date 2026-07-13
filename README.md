@@ -1,145 +1,109 @@
 # 🚗 Three.js 3D Car Viewer
 
-An interactive 3D car model viewer built with Three.js. This project demonstrates loading and manipulating 3D GLTF models in a web browser with keyboard controls, orbit camera, and fullscreen support.
+An interactive, high-end 3D car model viewer built with **Three.js** and **GSAP (GreenSock Animation Platform)**. It showcases a 3D model (GLB format) with automatic multi-angle cinematic camera paths, provides manual control capabilities, and opens with a premium loading screen transition.
 
-![Three.js](https://img.shields.io/badge/Three.js-black?style=for-the-badge&logo=three.js&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![Cinematic Loading and Entrance Transition](./media/preview.webp)
+
+---
 
 ## ✨ Features
 
-- **3D Model Loading** - Load and display GLTF/GLB 3D models
-- **Orbit Controls** - Rotate, pan, and zoom around the model with mouse
-- **Keyboard Controls** - Move and rotate the 3D model using keyboard
-- **Auto-Rotation** - Smooth automatic rotation of the camera view
-- **Fullscreen Mode** - Double-click to toggle fullscreen
-- **Responsive Design** - Automatically adapts to window resizing
-- **Damping Effect** - Smooth camera movement with damping
+- **GSAP Loading Screen** - Minimalist brand layout featuring a thin horizontal loader line ("web line") that expands horizontally and a monospaced percentage counter counting up to 100% dynamically.
+- **Wipe-Down Reveal Transition** - Symmetrical slide-down curtain reveal that wipes the preloader away while fading/sliding loading elements up.
+- **Cinematic Entrance Sweep** - A majestic, smooth camera sweep that zooms in from a distance to establish the 3D scene in sync with the slide-down reveal.
+- **Multi-Angle Automated Paths** - Seamlessly loops through 4 cinematic camera tracks (Grand Reveal, Low Prowl, Rear Drama, Orbital Glide) with built-in camera drift simulating a handheld operator.
+- **Manual Orbit Controls** - Toggle to manual view with **Spacebar** to zoom, rotate, and pan around the model using OrbitControls.
+- **Seamless Re-Entry Blending** - When toggling back to Cinematic Mode, GSAP smoothly blends the camera position and focal target from the manual viewpoint back onto the cinematic track coordinates.
+- **Lighting Rig & Dynamic Underglow** - Warm key light casting shadow maps, cool fill, back-rim backlight, and an animated colored underglow spot under the model.
+- **Responsive Layout** - Automatically adapts camera aspect ratio and renderer frames to window resizing events.
+- **Automated CI/CD Deploy** - Configured with GitHub Actions to compile Vite production bundles and deploy to GitHub Pages on every push to the `main` branch.
+
+---
 
 ## 🎮 Controls
 
-### Mouse Controls
-
-| Action      | Control            |
-| ----------- | ------------------ |
-| Rotate view | Left-click + drag  |
-| Pan view    | Right-click + drag |
-| Zoom        | Mouse wheel        |
+### Mouse Controls (Free Camera Mode)
+- **Rotate view** - Left-click + drag
+- **Pan view** - Right-click + drag
+- **Zoom** - Mouse wheel
 
 ### Keyboard Controls
+- **Spacebar** - Toggle between automated Cinematic Mode and manual Free Camera Mode.
+- **1, 2, 3, 4** - Seamlessly transition to a specific cinematic camera path target.
+- **Double-click (on Canvas)** - Toggle fullscreen mode.
 
-| Key          | Action                   |
-| ------------ | ------------------------ |
-| `W`          | Move model forward (Z+)  |
-| `S`          | Move model backward (Z-) |
-| `A`          | Move model left (X+)     |
-| `D`          | Move model right (X-)    |
-| `Q`          | Rotate model left        |
-| `E`          | Rotate model right       |
-| `Z`          | Move model down (Y-)     |
-| `X`          | Move model up (Y+)       |
-| `Arrow Keys` | Pan camera               |
+---
 
-### Other
+## 📁 Modular Project Structure
 
-- **Double-click** - Toggle fullscreen mode
+The project has been refactored into a highly clean, decoupled, and modular structure under `src/`:
+
+```
+threejs/
+├── .github/
+│   └── workflows/
+│       ├── deploy.yml      # CI/CD GitHub Pages deployment workflow
+│       └── static.yml      # Static hosting check workflow
+├── media/
+│   └── preview.webp        # README live preview media asset
+├── public/
+│   └── models/
+│       └── car.glb         # 3D car model GLB asset
+├── src/
+│   ├── core/
+│   │   ├── Scene.js        # Scene creation, fog, and background colors
+│   │   ├── Camera.js       # Perspective camera, path configs, GSAP transition manager
+│   │   ├── Renderer.js     # WebGLRenderer setups, shadow configurations, resize hooks
+│   │   └── Controls.js     # OrbitControls initialization and parameters
+│   ├── lights/
+│   │   └── Lighting.js     # Lights rig (ambient, directional, point light underglow)
+│   ├── objects/
+│   │   ├── Ground.js       # Circular metallic ground plane configuration
+│   │   └── CarModel.js     # GLTF loading, bounds mapping, sub-mesh shadow casting
+│   ├── ui/
+│   │   └── CinematicUI.js  # Letterbox bars, labels, dots, and GSAP preloader fades
+│   └── index.css           # Global stylesheet, resets, and preloader overlays styling
+├── index.html              # HTML entry point (links index.css and main.js)
+├── main.js                 # Application orchestrator, event bindings, and animation loops
+├── package.json            # Project dependencies and building scripts
+├── Dockerfile              # Docker container settings
+└── README.md               # This documentation file
+```
+
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - Node.js (v18 or higher recommended)
 - npm
 
-### Installation
+### Installation & Run
 
 1. Clone the repository:
-
    ```bash
    git clone <repository-url>
-   cd threejs
+   cd threejs-3d-car-viewer
    ```
 
 2. Install dependencies:
-
    ```bash
    npm install
    ```
 
-3. Start the development server:
-
+3. Run the local development server:
    ```bash
    npm run dev
    ```
 
-4. Open your browser and navigate to the URL shown in the terminal (usually `http://localhost:5173`)
+4. Open your browser and navigate to the local URL (usually `http://localhost:5173/threejs-3d-car-viewer/`).
 
-## 📦 Build
-
-To build the project for production:
-
+### Production Build & Preview
+To compile the minified bundle:
 ```bash
 npm run build
 ```
-
-To preview the production build:
-
+To run the production bundle locally:
 ```bash
 npm run preview
 ```
-
-## 🐳 Docker
-
-### Pull from Docker Hub
-
-The image is available on Docker Hub:
-
-```bash
-docker pull omid2831/omid-threejs-app
-docker run -p 3000:3000 omid2831/omid-threejs-app
-```
-
-🔗 **Docker Hub:** [omid2831/omid-threejs-app](https://hub.docker.com/r/omid2831/omid-threejs-app)
-
-### Build Locally
-
-Or build and run locally with Docker:
-
-```bash
-# Build the image
-docker build -t threejs-viewer .
-
-# Run the container
-docker run -p 3000:3000 threejs-viewer
-```
-
-Then open `http://localhost:3000` in your browser.
-
-## 📁 Project Structure
-
-```
-threejs/
-├── public/
-│   └── models/
-│       └── car.glb        # 3D car model
-├── index.html             # HTML entry point
-├── main.js                # Main Three.js application
-├── package.json           # Project dependencies
-├── Dockerfile             # Docker configuration
-└── README.md              # This file
-```
-
-## 🛠️ Technologies Used
-
-- **[Three.js](https://threejs.org/)** - 3D graphics library
-- **[Vite](https://vitejs.dev/)** - Fast build tool and dev server
-- **[GLTFLoader](https://threejs.org/docs/#examples/en/loaders/GLTFLoader)** - For loading 3D models
-- **[OrbitControls](https://threejs.org/docs/#examples/en/controls/OrbitControls)** - Camera control system
-
-## 📄 License
-
-ISC
-
----
-
-Made with ❤️ and Three.js
